@@ -2,10 +2,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const addDayButton = document.getElementById('add-day-button');
     const deleteAllButton = document.getElementById('delete-all-button');
     const saveButton = document.getElementById('save-button');
+    const loadPlanButton = document.getElementById('load-plan-button');
+    const planFileInput = document.getElementById('plan-file-input');
     const modeToggleButton = document.getElementById('mode-toggle-btn');
     const planTypeSelector = document.getElementById('plan-type-selector');
     const daysContainer = document.getElementById('days-container');
     let dayCounter = 0;
+
+    // قائمة الحقول الغذائية المتاحة
+    const nutritionFields = {
+        calories: { label: 'سعرات', unit: '' },
+        protein: { label: 'بروتين', unit: 'جرام' },
+        carbs: { label: 'كارب', unit: 'جرام' },
+        fats: { label: 'دهون', unit: 'جرام' },
+        fiber: { label: 'ألياف', unit: 'جرام' },
+        sugar: { label: 'سكريات', unit: 'جرام' }
+    };
 
 
     /**
@@ -18,14 +30,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const title = planType === 'diet' ? 'عنوان الوجبة' : 'اسم التمرين';
         const content = planType === 'diet' ? 'أدخل تفاصيل الوجبة...' : 'أدخل ملاحظات التمرين...';
-        const detailsHtml = planType === 'diet' ? `
-            <span><strong>بروتين:</strong> <span contenteditable="true">0</span> جرام</span>
-            <span><strong>سعرات:</strong> <span contenteditable="true">0</span></span>
-        ` : `
-            <span class="workout-field"><strong>الوزن:</strong> <span contenteditable="true">0</span> كجم</span>
-            <span class="workout-field"><strong>العدادات:</strong> <span contenteditable="true">0</span></span>
-            <span class="workout-field"><strong>المجاميع:</strong> <span contenteditable="true">0</span></span>
-        `;
+        let detailsHtml = '';
+
+        if (planType === 'diet') {
+            document.querySelectorAll('#nutrition-fields-checkboxes input:checked').forEach(checkbox => {
+                const fieldKey = checkbox.dataset.field;
+                const field = nutritionFields[fieldKey];
+                detailsHtml += `<span data-field="${fieldKey}"><strong>${field.label}:</strong> <span contenteditable="true">0</span> ${field.unit}</span>`;
+            });
+        } else { // workout
+            detailsHtml = `
+                <span class="workout-field"><strong>الوزن:</strong> <span contenteditable="true">0</span> كجم</span>
+                <span class="workout-field"><strong>العدادات:</strong> <span contenteditable="true">0</span></span>
+                <span class="workout-field"><strong>المجاميع:</strong> <span contenteditable="true">0</span></span>
+            `;
+        }
 
         mealBlock.innerHTML = `
             <button class="delete-meal-btn" title="حذف الوجبة">🗑️</button>
@@ -99,15 +118,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const mainHeader = document.querySelector('header h1');
         const mainDescription = document.querySelector('header p.description');
         const addDayBtn = document.getElementById('add-day-button');
+        const nutritionFieldsContainer = document.getElementById('nutrition-fields-container');
 
         if (planType === 'workout') {
             mainHeader.textContent = 'جدول النظام التدريبي';
             mainDescription.textContent = 'قم ببناء خطتك التدريبية بإضافة التمارين لكل يوم.';
             addDayBtn.textContent = '➕ إضافة يوم تدريبي';
+            nutritionFieldsContainer.style.display = 'none'; // إخفاء حقول التغذية
         } else { // diet
             mainHeader.textContent = 'جدول النظام الغذائي';
             mainDescription.textContent = 'قم ببناء خطتك الغذائية بإضافة الأيام والوجبات بشكل ديناميكي.';
             addDayBtn.textContent = '➕ إضافة يوم';
+            nutritionFieldsContainer.style.display = 'block'; // إظهار حقول التغذية
         }
 
         // تحديث كل العناصر الحالية في الصفحة
@@ -119,21 +141,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
             dayBlock.querySelectorAll('.meal-block').forEach(mealBlock => {
                 const details = mealBlock.querySelector('.meal-details');
+                let newDetailsHtml = '';
                 if (planType === 'diet') {
-                    details.innerHTML = `
-                        <span><strong>بروتين:</strong> <span contenteditable="true">0</span> جرام</span>
-                        <span><strong>سعرات:</strong> <span contenteditable="true">0</span></span>
-                    `;
+                    // إعادة بناء الحقول بناءً على الاختيارات الحالية
+                    document.querySelectorAll('#nutrition-fields-checkboxes input:checked').forEach(checkbox => {
+                        const fieldKey = checkbox.dataset.field;
+                        const field = nutritionFields[fieldKey];
+                        newDetailsHtml += `<span data-field="${fieldKey}"><strong>${field.label}:</strong> <span contenteditable="true">0</span> ${field.unit}</span>`;
+                    });
                 } else { // workout
-                    details.innerHTML = `
+                    newDetailsHtml = `
                         <span class="workout-field"><strong>الوزن:</strong> <span contenteditable="true">0</span> كجم</span>
                         <span class="workout-field"><strong>العدادات:</strong> <span contenteditable="true">0</span></span>
                         <span class="workout-field"><strong>المجاميع:</strong> <span contenteditable="true">0</span></span>
                     `;
                 }
+                details.innerHTML = newDetailsHtml;
             });
         });
     };
+
+    /**
+     * يقوم بإنشاء صناديق الاختيار الخاصة بالحقول الغذائية.
+ */
+    const populateNutritionFields = () => {
+        const container = document.getElementById('nutrition-fields-checkboxes');
+        container.innerHTML = ''; // مسح المحتوى القديم
+
+        // حقول مفعلة بشكل افتراضي
+        const defaultFields = ['calories', 'protein'];
+
+        for (const key in nutritionFields) {
+            const field = nutritionFields[key];
+            const isChecked = defaultFields.includes(key);
+            const checkboxHtml = `
+                <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 1em; cursor: pointer; padding: 5px 10px; border-radius: 5px; background-color: #f0f0f0;">
+                    <input type="checkbox" data-field="${key}" ${isChecked ? 'checked' : ''}>
+                    ${field.label}
+                </label>
+            `;
+            container.innerHTML += checkboxHtml;
+        }
+
+        // ربط حدث التغيير لتحديث الواجهة فوراً
+        container.addEventListener('change', updateUIForPlanType);
+    };
+
     /**
      * يحتوي على جميع أكواد CSS اللازمة للسمات المختلفة وتنسيق الصفحة المحفوظة.
      */
@@ -170,6 +223,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
             .meal-block h3 { margin: 0 0 10px 0; font-size: 1.3em; padding-bottom: 8px; }
             .meal-details span { display: block; margin-top: 8px; }
+
+            /* --- تصميم قسم اليوم القابل للطي (في الملف المحفوظ) --- */
+            .day-header {
+                cursor: pointer;
+                position: relative;
+                padding-right: 30px; /* مساحة للسهم في اليمين (RTL) */
+            }
+            .day-header::before {
+                content: '▲';
+                position: absolute;
+                right: 0; /* السهم على اليمين */
+                top: 50%;
+                transform: translateY(-50%);
+                font-size: 0.8em;
+                color: var(--accent-color, #3498db);
+                transition: transform 0.3s ease;
+            }
+            .day-block.collapsed .day-header::before {
+                transform: translateY(-50%) rotate(180deg);
+            }
+            .day-block.collapsed .meals-container { display: none; }
 
             /* --- 🎨 السمات اللونية 🎨 --- */
             /* 1. السمة الافتراضية (أزرق) */
@@ -296,25 +370,43 @@ document.addEventListener('DOMContentLoaded', () => {
             .dark-theme .modern-signature .captain-title { color: #bbb; }
 
             /* --- 📱 تصميم متجاوب مع الموبايل 📱 --- */
-            @media (max-width: 768px) {
-                body {
-                    padding: 10px;
-                }
-                .container {
-                    padding: 15px;
-                }
-                .banner-header {
-                    padding: 40px 15px;
-                }
+            @media (max-width: 768px) { 
+                body { padding: 10px; }
+                .container { padding: 15px; }
+                .banner-header { padding: 40px 15px; }
                 h1, .banner-header h1 { font-size: 2em; }
                 .day-header h2 { font-size: 1.5em; }
                 .meal-block h3 { font-size: 1.1em; }
-                .meals-container { grid-template-columns: 1fr; } /* عمود واحد على الموبايل */
                 .signature-images img { width: 80px; height: 80px; }
                 .signature-content .captain-name { font-size: 2em; }
                 .classic-signature .image-gallery { grid-template-columns: 1fr; }
                 .modern-signature .modern-images { flex-direction: column; }
                 .modern-signature .modern-images img { width: 100%; height: 150px; }
+
+                /* --- Layout 1: Vertical List (Default) --- */
+                .mobile-vertical .meals-container { 
+                    grid-template-columns: 1fr; 
+                }
+
+                /* --- Layout 2: Compact Grid --- */
+                .mobile-grid .meals-container { 
+                    grid-template-columns: 1fr 1fr;
+                    gap: 10px;
+                }
+                .mobile-grid .meal-block { padding: 10px; }
+                .mobile-grid .meal-block h3 { font-size: 1em; }
+
+                /* --- Layout 3: Simplified Cards --- */
+                .mobile-cards .meals-container {
+                    grid-template-columns: 1fr;
+                    gap: 8px;
+                }
+                .mobile-cards .day-block { padding: 15px; }
+                .mobile-cards .meal-block {
+                    box-shadow: none;
+                    border-radius: 4px;
+                    border-left: 4px solid var(--accent-color, #3498db);
+                }
             }
         `;
     };
@@ -360,6 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const planType = planTypeSelector.value;
         const isDarkMode = modeToggleButton.dataset.mode === 'dark';
         const signatureLayout = document.getElementById('signature-layout-selector').value;
+        const mobileLayout = document.getElementById('mobile-layout-selector').value;
 
         // 2. استنساخ حاوية الأيام فقط وتنظيفها
         const daysContainerClone = daysContainer.cloneNode(true);
@@ -368,14 +461,40 @@ document.addEventListener('DOMContentLoaded', () => {
         daysContainerClone.querySelectorAll('[contenteditable="true"]').forEach(el => {
             el.removeAttribute('contenteditable');
         });
+        daysContainerClone.querySelectorAll('.day-block').forEach(dayBlock => {
+            dayBlock.classList.add('collapsed'); // إضافة حالة الطي الافتراضية
+        });
         let dietPlanHtml = daysContainerClone.innerHTML;
 
         // 3. جلب الصور من الروابط وتحويلها إلى Base64
-        alert("جاري تحميل الصور وتضمينها... الرجاء الانتظار.");
+        alert("جاري تحميل الإعدادات والصور وتضمينها... الرجاء الانتظار.");
+
+        // 3.1 جلب البيانات من ملف botta.txt
+        let captainName = 'K/M mohy'; // قيمة افتراضية
+        let whatsappNumber = '201029831669'; // قيمة افتراضية
+        let captainTitle = 'خبير التغذية واللياقة البدنية - مصنع العضلات'; // قيمة افتراضية
+        try {
+            const response = await fetch('botta11.txt', { cache: 'no-store' }); // إضافة هذا السطر يمنع التخزين المؤقت ويضمن قراءة الملف المحدث دائماً
+            if (!response.ok) throw new Error('File not found');
+            const text = await response.text();
+            const lines = text.split('\n');
+            lines.forEach(line => {
+                if (line.startsWith('captainName=')) {
+                    captainName = line.split('=')[1].trim();
+                } else if (line.startsWith('whatsappNumber=')) {
+                    whatsappNumber = line.split('=')[1].trim();
+                } else if (line.startsWith('captainTitle=')) {
+                    captainTitle = line.split('=')[1].trim();
+                }
+            });
+        } catch (error) {
+            console.warn("لم يتم العثور على ملف botta11.txt أو فشل في قراءته. سيتم استخدام البيانات الافتراضية.");
+        }
+
         const [img1_b64, img2_b64, img3_b64] = await Promise.all([
-            imageUrlToBase64('https://i.postimg.cc/mrLC1DL4/Picsart-25-11-15-02-40-50-432.jpg'),
-            imageUrlToBase64('https://i.postimg.cc/qBSSTt0g/Picsart-25-11-15-02-41-25-060.jpg'),
-            imageUrlToBase64('https://i.postimg.cc/L8MWJrJf/Picsart-25-11-15-02-42-03-732.jpg')
+            imageUrlToBase64('images/image1.jpg'), // الصورة الأولى للبانر
+            imageUrlToBase64('images/image2.jpg'), // الصورة الثانية للتوقيع
+            imageUrlToBase64('images/image3.jpg')  // الصورة الثالثة للتوقيع
         ]);
 
         // 4. إنشاء قسم التوقيع بناءً على الاختيار
@@ -383,11 +502,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const whatsappButton = `<a href="#" id="whatsapp-share-btn" class="whatsapp-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" width="20" height="20"><path fill="currentColor" d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.8 0-65.7-10.8-94.2-30.6l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.8-16.2-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/></svg><span>تواصل عبر واتساب</span></a>`;
 
         if (signatureLayout === 'professional') {
-            signatureHtml = `<footer class="signature-footer"><div class="signature-images"><img src="${img2_b64}" alt="صورة للكابتن محمد محي 2"><img src="${img3_b64}" alt="صورة للكابتن محمد محي 3"></div><div class="signature-content"><p class="prepared-by">تم إعداد هذا البرنامج بواسطة</p><h3 class="captain-name">K/M mohy</h3><p class="captain-title">خبير التغذية واللياقة البدنية - مصنع العضلات</p>${whatsappButton}</div></footer>`;
+            signatureHtml = `<footer class="signature-footer"><div class="signature-images"><img src="${img2_b64}" alt="صورة للكابتن"><img src="${img3_b64}" alt="صورة للكابتن"></div><div class="signature-content"><p class="prepared-by">تم إعداد هذا البرنامج بواسطة</p><h3 class="captain-name">${captainName}</h3><p class="captain-title">${captainTitle}</p>${whatsappButton}</div></footer>`;
         } else if (signatureLayout === 'classic') {
-            signatureHtml = `<div class="classic-signature"><div class="personal-details"><h2>K/M mohy</h2><h3>مصنع العضلات - Muscle Factory</h3></div><div class="image-gallery" style="grid-template-columns: repeat(2, 1fr);"><div class="gallery-item"><img src="${img2_b64}" alt="صورة 2"></div><div class="gallery-item"><img src="${img3_b64}" alt="صورة 3"></div></div><div class="share-section"><p>للاستفسار أو تعديل الخطة، تواصل معي مباشرة!</p>${whatsappButton}</div></div>`;
+            signatureHtml = `<div class="classic-signature"><div class="personal-details"><h2>${captainName}</h2><h3>مصنع العضلات - Muscle Factory</h3></div><div class="image-gallery" style="grid-template-columns: repeat(2, 1fr);"><div class="gallery-item"><img src="${img2_b64}" alt="صورة"></div><div class="gallery-item"><img src="${img3_b64}" alt="صورة"></div></div><div class="share-section"><p>للاستفسار أو تعديل الخطة، تواصل معي مباشرة!</p>${whatsappButton}</div></div>`;
         } else if (signatureLayout === 'modern') {
-            signatureHtml = `<footer class="modern-signature"><div class="modern-images" style="--img-count: 2;"><img src="${img2_b64}" alt="صورة للكابتن محمد محي 2"><img src="${img3_b64}" alt="صورة للكابتن محمد محي 3"></div><div class="modern-content"><h3 class="captain-name">K/M mohy</h3><p class="captain-title">خبير التغذية واللياقة البدنية - مصنع العضلات</p>${whatsappButton}</div></footer>`;
+            signatureHtml = `<footer class="modern-signature"><div class="modern-images" style="--img-count: 2;"><img src="${img2_b64}" alt="صورة للكابتن"><img src="${img3_b64}" alt="صورة للكابتن"></div><div class="modern-content"><h3 class="captain-name">${captainName}</h3><p class="captain-title">${captainTitle}</p>${whatsappButton}</div></footer>`;
         }
 
         // 5. إضافة كود الحفظ التلقائي وتفعيل التعديل فقط لخطة التدريب
@@ -441,7 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>${fileName}</title>
+                <title>${fileName.trim()}</title>
                 <link rel="preconnect" href="https://fonts.googleapis.com">
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
                 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
@@ -449,19 +568,36 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${getThemeStyles()}
                 </style>
             </head>
-            <body class="${selectedTheme} ${isDarkMode ? 'dark-theme' : ''}">
+            <body class="${selectedTheme} ${isDarkMode ? 'dark-theme' : ''} ${mobileLayout}">
                 <div class="container">
                     ${bannerHeaderHtml}
                     <div id="days-container">${dietPlanHtml}</div>
                     ${signatureHtml}
                 </div>
                 <script>
-                    document.getElementById('whatsapp-share-btn').addEventListener('click', function(e) {
-                        e.preventDefault();
-                        const phoneNumber = "201029831669";
-                        const message = "أهلاً كابتن محمد، لدي استفسار بخصوص الخطة الغذائية.";
-                        const encodedMessage = encodeURIComponent(message);
-                        window.open('https://wa.me/' + phoneNumber + '?text=' + encodedMessage, '_blank');
+                    document.addEventListener('DOMContentLoaded', function() {
+                        // كود تفعيل خاصية الطي والفتح
+                        document.getElementById('days-container').addEventListener('click', function(event) {
+                            const dayHeader = event.target.closest('.day-header');
+                            if (dayHeader && !event.target.closest('a')) {
+                                const dayBlock = dayHeader.closest('.day-block');
+                                if (dayBlock) {
+                                    dayBlock.classList.toggle('collapsed');
+                                }
+                            }
+                        });
+
+                        // كود زر الواتساب
+                        const whatsappBtn = document.getElementById('whatsapp-share-btn');
+                        if (whatsappBtn) {
+                            whatsappBtn.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                const phoneNumber = "${whatsappNumber}";
+                                const message = "أهلاً كابتن محمد، لدي استفسار بخصوص الخطة.";
+                                const encodedMessage = encodeURIComponent(message);
+                                window.open('https://wa.me/' + phoneNumber + '?text=' + encodedMessage, '_blank');
+                            });
+                        }
                     });
                 </script>
                 ${autoSaveScript}
@@ -509,6 +645,108 @@ document.addEventListener('DOMContentLoaded', () => {
         alert(`تم تجهيز الملف "${fileName.trim()}.html" للتنزيل.`);
     };
 
+    /**
+     * يقرأ ملف خطة HTML المحفوظ ويعيد تحميله في المحرر.
+     * @param {Event} event - حدث تغيير حقل إدخال الملف.
+     */
+    const loadPlanFromFile = (event) => {
+        const file = event.target.files[0];
+        if (!file) {
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const fileContent = e.target.result;
+
+                // 1. استخراج المحتوى المشفر وفك تشفيره
+                const base64Match = fileContent.match(/atob\('([^']+)'\)/);
+                if (!base64Match || !base64Match[1]) {
+                    throw new Error("الملف غير صالح أو لا يحتوي على محتوى مشفر.");
+                }
+                const decodedHtml = decodeURIComponent(escape(atob(base64Match[1])));
+
+                // 2. إنشاء عنصر DOM مؤقت لتحليل المحتوى
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(decodedHtml, 'text/html');
+
+                // 3. استخراج الإعدادات من الملف المحمل
+                const bodyClasses = doc.body.className.split(' ');
+                const theme = bodyClasses.find(c => c.endsWith('-light') || ['ocean-blue', 'forest-green', 'royal-gold', 'professional-gray', 'sunset-orange', 'royal-purple'].includes(c)) || 'default-light';
+                const isDarkMode = bodyClasses.includes('dark-theme');
+                const planType = doc.querySelector('.banner-header h1').textContent.includes('التدريبي') ? 'workout' : 'diet';
+                const signatureElement = doc.querySelector('footer, .classic-signature');
+                let signatureLayout = 'professional';
+                const mobileLayout = bodyClasses.find(c => c.startsWith('mobile-')) || 'mobile-vertical';
+                if (signatureElement) {
+                    if (signatureElement.classList.contains('classic-signature')) signatureLayout = 'classic';
+                    else if (signatureElement.classList.contains('modern-signature')) signatureLayout = 'modern';
+                }
+
+                // 4. استخراج محتوى الأيام وإعادة بنائه ليكون قابلاً للتعديل
+                const loadedDaysContainer = doc.getElementById('days-container');
+                if (!loadedDaysContainer) {
+                    throw new Error("لم يتم العثور على حاوية الأيام في الملف.");
+                }
+
+                // إعادة تفعيل حقول التعديل وإضافة الأزرار المحذوفة
+                loadedDaysContainer.querySelectorAll('.day-block').forEach(dayBlock => {
+                    dayBlock.querySelector('.day-header h2').setAttribute('contenteditable', 'true');
+                    const addBtnText = planType === 'diet' ? '➕ إضافة وجبة' : '➕ إضافة تمرين';
+                    const dayHeaderButtons = dayBlock.querySelector('.day-header-buttons');
+                    dayHeaderButtons.innerHTML = `
+                        <button class="add-meal-btn">${addBtnText}</button>
+                        <button class="delete-day-btn" title="حذف اليوم">🗑️</button>
+                    `;
+
+                    dayBlock.querySelectorAll('.meal-block').forEach(mealBlock => {
+                        mealBlock.querySelector('h3').setAttribute('contenteditable', 'true');
+                        mealBlock.querySelector('.meal-content').setAttribute('contenteditable', 'true');
+                        mealBlock.querySelectorAll('.meal-details span[contenteditable]').forEach(span => span.setAttribute('contenteditable', 'true'));
+                        
+                        // إضافة زر حذف الوجبة
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.className = 'delete-meal-btn';
+                        deleteBtn.title = 'حذف الوجبة';
+                        deleteBtn.innerHTML = '🗑️';
+                        mealBlock.prepend(deleteBtn);
+                    });
+                });
+
+                // 5. تحديث الصفحة بالمحتوى الجديد
+                daysContainer.innerHTML = loadedDaysContainer.innerHTML;
+                dayCounter = daysContainer.querySelectorAll('.day-block').length;
+
+                // 6. تحديث عناصر التحكم في الواجهة الرئيسية
+                planTypeSelector.value = planType;
+                document.getElementById('theme-selector').value = theme;
+                document.getElementById('signature-layout-selector').value = signatureLayout;
+                document.getElementById('mobile-layout-selector').value = mobileLayout;
+                
+                if ((isDarkMode && modeToggleButton.dataset.mode !== 'dark') || (!isDarkMode && modeToggleButton.dataset.mode === 'dark')) {
+                    toggleMode(); // تبديل الوضع إذا كان مختلفًا
+                }
+                
+                updateUIForPlanType(); // تحديث الواجهة لتطابق نوع الخطة
+
+                alert("تم استعادة الخطة بنجاح وجاهزة للتعديل.");
+
+            } catch (error) {
+                console.error("فشل في تحميل الخطة:", error);
+                alert(`حدث خطأ أثناء محاولة استعادة الملف. قد يكون الملف غير صالح.\n${error.message}`);
+            } finally {
+                // إعادة تعيين حقل الإدخال للسماح بتحميل نفس الملف مرة أخرى
+                event.target.value = '';
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    // --- التهيئة الأولية للصفحة ---
+    populateNutritionFields(); // إنشاء صناديق اختيار الحقول الغذائية
+    updateUIForPlanType(); // تحديث الواجهة بناءً على الاختيار الافتراضي
+
     // ربط الأحداث بالأزرار الرئيسية
     if (addDayButton) {
         addDayButton.addEventListener('click', addDay);
@@ -518,6 +756,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (saveButton) {
         saveButton.addEventListener('click', savePlanAsHtml);
+    }
+    if (loadPlanButton) {
+        loadPlanButton.addEventListener('click', () => planFileInput.click()); // فتح نافذة اختيار الملف
+    }
+    if (planFileInput) {
+        planFileInput.addEventListener('change', loadPlanFromFile);
     }
     if (modeToggleButton) {
         modeToggleButton.addEventListener('click', toggleMode);
